@@ -1,9 +1,23 @@
 #!/bin/bash
 
-# Install NTP package and configure it.
+#Variables
 
+
+# Install NTP package and configure it.
+echo "Installing NTP. Often Required for compliance"
 yum install -y ntp ntpdate 
 chkconfig ntpd on
 ntpdate pool.ntp.org
 systemctl start ntpd
+
+# Install Advanced Intrusion Detection Environment (AIDE) and Create cron job.
+echo "Installing Advanced Intrusion Detection"
+yum install aide -y && /usr/sbin/aide --init && cp /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz && /usr/sbin/aide --check
+
+echo "00 12 * * * root /usr/sbin/aide --check" >> /etc/crontab
+
+# Disable Zeroconf Networking
+echo "Disabling Zero configation Networking"
+echo "NOZEROCONF=yes" >> /etc/sysconfig/network
+
 
