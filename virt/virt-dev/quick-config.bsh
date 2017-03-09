@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Install NTP package and configure it.
+
+yum install -y ntp ntpdate 
+chkconfig ntpd on
+ntpdate pool.ntp.org
+systemctl start ntpd
+
