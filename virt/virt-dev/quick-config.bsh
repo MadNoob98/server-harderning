@@ -1,23 +1,69 @@
 #!/bin/bash
 
-#Variables
+# Prevent users from mounting USBs.
+echo "install usb-storage /bin/false" > /etc/modprobe.d/usb-storage.conf
 
+# Require Auth for single user mode.
+echo "SINGLE=/sbin/sulogin" >> /etc/sysconfig/init
 
-# Install NTP package and configure it.
-echo "Installing NTP. Often Required for compliance"
-yum install -y ntp ntpdate 
+# Install console screen locking
+echo "Installing console screen locking package"
+sudo yum install -y screen.x86_64
+
+# Disable pre-linking
+if grep -q ^PRELINKING /etc/sysconfig/prelink
+then
+  sed -i 's/PRELINKING.*/PRELINKING=no/g' /etc/sysconfig/prelink
+else 
+  echo -e "\n# Set PRELINKING=no per security requirments" >> /etc/sysconfig/prelink
+  echo "PRELINKING=no" >> /etc/sysconfig/prelink
+fi
+
+# Install Network Time Protocol (NTP)
+echo "Installing NTP Package"
+sudo yum install -y ntp ntpdate
 chkconfig ntpd on
 ntpdate pool.ntp.org
-systemctl start ntpd
+sudo systemctl start ntpd
 
-# Install Advanced Intrusion Detection Environment (AIDE) and Create cron job.
-echo "Installing Advanced Intrusion Detection"
-yum install aide -y && /usr/sbin/aide --init && cp /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz && /usr/sbin/aide --check
+# Disable zeroconf networking 
+echo "Disabling zero configuration networking"
+sudo echo "NOZERCONF=yes" >> /etc/sysconfig/network
 
-echo "00 12 * * * root /usr/sbin/aide --check" >> /etc/crontab
+# Ensure rsyslog is installed
+sudo yum -y install rsyslog
 
-# Disable Zeroconf Networking
-echo "Disabling Zero configation Networking"
-echo "NOZEROCONF=yes" >> /etc/sysconfig/network
+# Install and configure Advanced Intrusion Detection (AIDE) + configure daily cronjob to run Aide check.
+#yum -y install aide && /usr/sbin/aide --init && cp /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz && /usr/sbin/aide --check
+#echo "05 4 * * * root /usr/sbin/aide --check" >> /etc/crontab
+
+# Disable DHCP (Server is NOT a DHCP server)
+#sudo systemctl disable dhcpd
+
+# Confirm SELinux is enforcing/enabled
+sudo sed -i "s/selinux=0//gI" /etc/grub2.cfg
+sudo sed -i "s/enforcing=0//gI" /etc/grub2.cfg
+
+# Disable Autofs
+chkconfig --level 0123456 autofs off
+systemctl stop autofs
+systemctl disable autofs
+
+# Disable the usage of uncommon filesystems
+sudo echo "install cramfs /bin/false" > /etc/modprobe.d/cramfs.conf
+sudo echo "install freevxfs /bin/false" > /etc/modprobe.d/freevxfs.conf
+sudo echo "install jffs2 /bin/false" > /etc/modprobe.d/jffs2.conf
+sudo echo "install hfs /bin/false" > /etc/modprobe.d/hfs.conf
+sudo echo "install hfsplus /bin/false" > /etc/modprobe.d/hfsplus.conf
+sudo echo "install squashfs /bin/false" > /etc/modprobe.d/squashfs.conf
+sudo echo "install udf /bin/false" > /etc/modprobe.d/udf.conf
+
+# Configure Audit Daemon
+sudo systemctl enable auditd.service
+sudo systemctl start auditd.service
+
+# Disable Ctrl-Alt-Del reboot (from CLI)
+sed -i 's/\exec /sbin/shutdown -r now "Control-Alt-Delete pressed" /exec /usr/bin/logger -p security.info "Control-Alt-Delete pressed"/g' /etc/init/control-alt-delete.conf
+
 
 
